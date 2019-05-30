@@ -18,6 +18,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.hyperledger.fabric.gateway.GatewayException;
 import org.hyperledger.fabric.gateway.Transaction;
+import org.hyperledger.fabric.gateway.TransactionResult;
 import org.hyperledger.fabric.gateway.spi.CommitHandler;
 import org.hyperledger.fabric.gateway.spi.CommitHandlerFactory;
 import org.hyperledger.fabric.gateway.spi.Query;
@@ -71,7 +72,8 @@ public final class TransactionImpl implements Transaction {
     }
 
     @Override
-    public byte[] submit(String... args) throws GatewayException, TimeoutException {
+//    public byte[] submit(String... args) throws GatewayException, TimeoutException {
+    public TransactionResult submit(String... args) throws GatewayException, TimeoutException {
         try {
             NetworkImpl network = contract.getNetwork();
             Channel channel = network.getChannel();
@@ -118,7 +120,11 @@ public final class TransactionImpl implements Transaction {
 
             commitHandler.waitForEvents(commitTimeout.getTime(), commitTimeout.getTimeUnit());
 
-            return result;
+            TransactionResult transResult = new TransactionResult(transactionId);
+            transResult.setResult(result);
+            transResult.setEventResult(commitHandler.eventResult());
+//            return result;
+            return transResult;
         } catch (InvalidArgumentException | ProposalException | ServiceDiscoveryException e) {
             throw new GatewayException(e);
         }
@@ -149,7 +155,8 @@ public final class TransactionImpl implements Transaction {
     }
 
     @Override
-    public byte[] evaluate(String... args) throws GatewayException {
+//    public byte[] evaluate(String... args) throws GatewayException {
+    public TransactionResult evaluate(String... args) throws GatewayException {
         NetworkImpl network = contract.getNetwork();
 
         QueryByChaincodeRequest request = network.getGateway().getClient().newQueryProposalRequest();
@@ -164,7 +171,11 @@ public final class TransactionImpl implements Transaction {
 
 	        Query query = new QueryImpl(network.getChannel(), request);
 	        ProposalResponse response = queryHandler.evaluate(query);
-            return response.getChaincodeActionResponsePayload();
+	        String txId = response.getTransactionID();
+	        TransactionResult result = new TransactionResult(txId);
+	        result.setResult(response.getChaincodeActionResponsePayload());
+	        return result;
+//            return response.getChaincodeActionResponsePayload();
         } catch (InvalidArgumentException e) {
             throw new GatewayException(e);
         }

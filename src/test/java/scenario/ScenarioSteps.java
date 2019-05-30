@@ -226,9 +226,9 @@ public class ScenarioSteps implements En {
 
 					final byte[] result;
 					if (action.equals("submit")) {
-						result = transaction.submit(args);
+						result = transaction.submit(args).getResult();
 					} else {
-						result = transaction.evaluate(args);
+						result = transaction.evaluate(args).getResult();
 					}
 					response = newString(result);
 				});

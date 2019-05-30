@@ -6,10 +6,7 @@
 
 package org.hyperledger.fabric.gateway.impl;
 
-import org.hyperledger.fabric.gateway.Contract;
-import org.hyperledger.fabric.gateway.ContractEvent;
-import org.hyperledger.fabric.gateway.GatewayException;
-import org.hyperledger.fabric.gateway.Transaction;
+import org.hyperledger.fabric.gateway.*;
 
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
@@ -40,12 +37,14 @@ public class ContractImpl implements Contract {
     }
 
     @Override
-    public byte[] submitTransaction(String name, String... args) throws GatewayException, TimeoutException {
+//    public byte[] submitTransaction(String name, String... args) throws GatewayException, TimeoutException {
+    public TransactionResult submitTransaction(String name, String... args) throws GatewayException, TimeoutException {
         return createTransaction(name).submit(args);
     }
 
     @Override
-    public byte[] evaluateTransaction(String name, String... args) throws GatewayException {
+//    public byte[] evaluateTransaction(String name, String... args) throws GatewayException {
+    public TransactionResult evaluateTransaction(String name, String... args) throws GatewayException {
         return createTransaction(name).evaluate(args);
     }
 

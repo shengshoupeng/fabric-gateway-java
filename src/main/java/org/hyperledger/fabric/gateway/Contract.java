@@ -44,7 +44,8 @@ public interface Contract {
 	 *
 	 * @see <a href="https://hyperledger-fabric.readthedocs.io/en/release-1.4/developapps/application.html#submit-transaction">Developing Fabric Applications - Submit transaction</a>
 	 */
-	byte[] submitTransaction(String name, String... args) throws GatewayException, TimeoutException;
+//	byte[] submitTransaction(String name, String... args) throws GatewayException, TimeoutException;
+	TransactionResult submitTransaction(String name, String... args) throws GatewayException, TimeoutException;
 
 	/**
 	 * Evaluate a transaction function and return its results.
@@ -59,7 +60,8 @@ public interface Contract {
 	 * @return Payload response from the transaction function.
 	 * @throws GatewayException
 	 */
-	byte[] evaluateTransaction(String name, String... args) throws GatewayException;
+//	byte[] evaluateTransaction(String name, String... args) throws GatewayException;
+    TransactionResult evaluateTransaction(String name, String... args) throws GatewayException;
 
 	/**
 	 * Add a listener to receive contract events emitted by transactions. The listener is only notified of events

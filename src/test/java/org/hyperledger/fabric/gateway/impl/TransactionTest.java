@@ -105,7 +105,7 @@ public class TransactionTest {
         when(response.getPeer()).thenReturn(peer);
         when(channel.queryByChaincode(any(), anyCollection())).thenReturn(Arrays.asList(response));
 
-        byte[] result = contract.evaluateTransaction("txn", "arg1");
+        byte[] result = contract.evaluateTransaction("txn", "arg1").getResult();
         assertThat(new String(result)).isEqualTo(expected);
     }
 
@@ -116,7 +116,7 @@ public class TransactionTest {
         when(response.getPeer()).thenReturn(peer);
         when(channel.queryByChaincode(any(), anyCollection())).thenReturn(Arrays.asList(response));
 
-        byte[] result = contract.createTransaction("txn").setTransient(transientMap).evaluate("arg1");
+        byte[] result = contract.createTransaction("txn").setTransient(transientMap).evaluate("arg1").getResult();
         assertThat(new String(result)).isEqualTo(expected);
     }
 
@@ -145,7 +145,7 @@ public class TransactionTest {
         when(channel.sendTransactionProposalToEndorsers(ArgumentMatchers.any(), ArgumentMatchers.any())).thenReturn(Arrays.asList(response));
 
 
-        byte[] result = contract.submitTransaction("txn", "arg1");
+        byte[] result = contract.submitTransaction("txn", "arg1").getResult();
         assertThat(new String(result)).isEqualTo(expected);
     }
 
@@ -157,7 +157,7 @@ public class TransactionTest {
         when(channel.sendTransactionProposalToEndorsers(ArgumentMatchers.any(), ArgumentMatchers.any())).thenReturn(Arrays.asList(response));
 
 
-        byte[] result = contract.createTransaction("txn").setTransient(transientMap).submit("arg1");
+        byte[] result = contract.createTransaction("txn").setTransient(transientMap).submit("arg1").getResult();
         assertThat(new String(result)).isEqualTo(expected);
     }
 

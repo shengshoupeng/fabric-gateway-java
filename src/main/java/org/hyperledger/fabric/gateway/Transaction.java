@@ -56,7 +56,8 @@ public interface Transaction {
 	 * @throws TimeoutException if the transaction was successfully submitted to the orderer but
 	 * timed out before a commit event was received from peers.
 	 */
-	byte[] submit(String... args) throws GatewayException, TimeoutException;
+//	byte[] submit(String... args) throws GatewayException, TimeoutException;
+	TransactionResult submit(String... args) throws GatewayException, TimeoutException;
 
 	/**
 	 * Evaluate a transaction function and return its results.
@@ -69,5 +70,6 @@ public interface Transaction {
 	 * @return Payload response from the transaction function.
 	 * @throws GatewayException
 	 */
-	byte[] evaluate(String... args) throws GatewayException;
+//	byte[] evaluate(String... args) throws GatewayException;
+	TransactionResult evaluate(String... args) throws GatewayException;
 }
