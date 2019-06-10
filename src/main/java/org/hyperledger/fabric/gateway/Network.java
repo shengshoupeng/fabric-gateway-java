@@ -7,10 +7,11 @@
 package org.hyperledger.fabric.gateway;
 
 import org.hyperledger.fabric.gateway.impl.event.TransactionEventSource;
+import org.hyperledger.fabric.gateway.spi.Checkpointer;
 import org.hyperledger.fabric.sdk.BlockEvent;
 import org.hyperledger.fabric.sdk.Channel;
-import org.hyperledger.fabric.sdk.Peer;
 
+import java.io.IOException;
 import java.util.function.Consumer;
 
 /**
@@ -47,7 +48,6 @@ public interface Network {
 	/**
 	 * Get the low-level chanel object associated with this network.
 	 * @return A channel.
-	 * @deprecated
 	 */
 	Channel getChannel();
 
@@ -59,15 +59,6 @@ public interface Network {
 	TransactionEventSource getTransactionEventSource();
 
 	/**
-	 * Get the membership services provider ID for a given peer.
-	 * @param peer a peer.
-	 * @return A member services provider ID.
-	 * @throws IllegalArgumentException if the peer is not associated with the network.
-	 * @deprecated
-	 */
-	String getPeerOrganization(Peer peer);
-
-	/**
 	 * Add a listener to receive block events from the network.
 	 * @param listener A block listener.
 	 * @return The block listener argument.
@@ -75,7 +66,27 @@ public interface Network {
 	Consumer<BlockEvent> addBlockListener(Consumer<BlockEvent> listener);
 
 	/**
-	 * Removes a previously added block listener.
+	 * Add a listener to receive block events from the network with checkpointing. Re-adding a listener with the same
+	 * checkpointer on subsequent application invocations will resume listening from the previous block position.
+	 * @param listener A block listener.
+	 * @param checkpointer Checkpointer to persist block position.
+	 * @return The block listener argument.
+	 * @throws IOException if an errors occurs establishing checkpointing.
+	 */
+	Consumer<BlockEvent> addBlockListener(Consumer<BlockEvent> listener, Checkpointer checkpointer) throws GatewayException, IOException;
+
+//	/**
+//	 * Add a listener to receive block events from the network with checkpointing. Re-adding a listener with the same
+//	 * checkpointer name on subsequent application invocations will resume listening from the previous block position.
+//	 * @param listener A block listener.
+//	 * @param checkpointerName Name used to uniquely identify the checkpointer within this network.
+//	 * @return The block listener argument.
+//	 * @throws IOException if an errors occurs establishing checkpointing.
+//	 */
+//	Consumer<BlockEvent> addBlockListener(Consumer<BlockEvent> listener, String checkpointerName) throws GatewayException, IOException;
+
+	/**
+	 * Removes a previously added block listener. Any associated checkpointer will be closed.
 	 * @param listener A block listener.
 	 */
 	void removeBlockListener(Consumer<BlockEvent> listener);
