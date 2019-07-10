@@ -6,10 +6,13 @@
 
 package org.hyperledger.fabric.gateway;
 
-import org.hyperledger.fabric.sdk.BlockEvent;
-
 import java.util.Optional;
 
+import org.hyperledger.fabric.sdk.BlockEvent;
+
+/**
+ * Event emitted by the business logic of a smart contract during execution of a transaction.
+ */
 public interface ContractEvent {
     /**
      * Get the name of the event emitted by the contract.
@@ -24,20 +27,14 @@ public interface ContractEvent {
     String getChaincodeId();
 
     /**
-     * Get the identifier of the transaction invocation that emitted this event.
-     * @return A transaction ID.
+     * Get the transaction event that included this contract event.
+     * @return The associated transaction event.
      */
-    String getTransactionId();
+    BlockEvent.TransactionEvent getTransactionEvent();
 
     /**
      * Any binary data associated with this event by the chaincode.
      * @return A binary payload.
      */
     Optional<byte[]> getPayload();
-
-    /**
-     * Get the block that contained this event.
-     * @return A block event.
-     */
-    BlockEvent getBlockEvent();
 }

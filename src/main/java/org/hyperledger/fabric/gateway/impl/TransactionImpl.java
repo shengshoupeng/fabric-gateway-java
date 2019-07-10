@@ -6,9 +6,16 @@
 
 package org.hyperledger.fabric.gateway.impl;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.hyperledger.fabric.gateway.GatewayException;
+import org.hyperledger.fabric.gateway.ContractException;
+import org.hyperledger.fabric.gateway.GatewayRuntimeException;
 import org.hyperledger.fabric.gateway.Transaction;
 import org.hyperledger.fabric.gateway.TransactionResult;
 import org.hyperledger.fabric.gateway.spi.CommitHandler;
@@ -25,12 +32,6 @@ import org.hyperledger.fabric.sdk.TransactionProposalRequest;
 import org.hyperledger.fabric.sdk.exception.InvalidArgumentException;
 import org.hyperledger.fabric.sdk.exception.ProposalException;
 import org.hyperledger.fabric.sdk.exception.ServiceDiscoveryException;
-
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 import static org.hyperledger.fabric.sdk.Channel.DiscoveryOptions.createDiscoveryOptions;
 
@@ -109,13 +110,13 @@ public final class TransactionImpl implements Transaction {
             commitHandler.startListening();
 
             try {
-                channel.sendTransaction(proposalResponses, transactionOptions).get(60, TimeUnit.SECONDS);
+                channel.sendTransaction(validResponses, transactionOptions).get(60, TimeUnit.SECONDS);
             } catch (TimeoutException e) {
                 commitHandler.cancelListening();
                 throw e;
             } catch (Exception e) {
                 commitHandler.cancelListening();
-                throw new GatewayException("Failed to send transaction to the orderer", e);
+                throw new ContractException("Failed to send transaction to the orderer", e);
             }
 
             commitHandler.waitForEvents(commitTimeout.getTime(), commitTimeout.getTimeUnit());
@@ -126,11 +127,11 @@ public final class TransactionImpl implements Transaction {
 //            return result;
             return transResult;
         } catch (InvalidArgumentException | ProposalException | ServiceDiscoveryException e) {
-            throw new GatewayException(e);
+            throw new GatewayRuntimeException(e);
         }
     }
 
-    private Collection<ProposalResponse> validatePeerResponses(Collection<ProposalResponse> proposalResponses) throws GatewayException {
+    private Collection<ProposalResponse> validatePeerResponses(Collection<ProposalResponse> proposalResponses) throws ContractException {
         final Collection<ProposalResponse> validResponses = new ArrayList<>();
         final Collection<String> invalidResponseMsgs = new ArrayList<>();
         proposalResponses.forEach(response -> {
@@ -148,7 +149,7 @@ public final class TransactionImpl implements Transaction {
         	String msg = String.format("No valid proposal responses received. %d peer error responses: %s",
         			invalidResponseMsgs.size(), String.join("; ", invalidResponseMsgs));
             logger.error(msg);
-            throw new GatewayException(msg);
+            throw new ContractException(msg);
         }
 
         return validResponses;
@@ -164,11 +165,15 @@ public final class TransactionImpl implements Transaction {
         request.setChaincodeID(chaincodeId);
         request.setFcn(name);
         request.setArgs(args);
-        try {
-	        if(transientData != null) {
-	        	request.setTransientMap(transientData);
-	        }
+        if (transientData != null) {
+            try {
+                request.setTransientMap(transientData);
+            } catch (InvalidArgumentException e) {
+                throw new IllegalStateException(e);
+            }
+        }
 
+        try{
 	        Query query = new QueryImpl(network.getChannel(), request);
 	        ProposalResponse response = queryHandler.evaluate(query);
 	        String txId = response.getTransactionID();
@@ -177,7 +182,7 @@ public final class TransactionImpl implements Transaction {
 	        return result;
 //            return response.getChaincodeActionResponsePayload();
         } catch (InvalidArgumentException e) {
-            throw new GatewayException(e);
+            throw new ContractException(response.getMessage(), e);
         }
     }
 

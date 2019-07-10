@@ -8,23 +8,34 @@ package org.hyperledger.fabric.gateway.impl;
 
 import org.hyperledger.fabric.gateway.*;
 
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 import java.util.regex.Pattern;
 
-public final class ContractImpl implements Contract {
+import org.hyperledger.fabric.gateway.Contract;
+import org.hyperledger.fabric.gateway.ContractEvent;
+import org.hyperledger.fabric.gateway.ContractException;
+import org.hyperledger.fabric.gateway.Transaction;
+import org.hyperledger.fabric.gateway.impl.event.BlockListenerSession;
+import org.hyperledger.fabric.gateway.impl.event.ListenerSession;
+import org.hyperledger.fabric.gateway.impl.event.Listeners;
+import org.hyperledger.fabric.gateway.impl.event.ReplayListenerSession;
+import org.hyperledger.fabric.gateway.spi.Checkpointer;
+import org.hyperledger.fabric.sdk.BlockEvent;
+
+public final class ContractImpl implements Contract, AutoCloseable {
     private final NetworkImpl network;
-    private final GatewayImpl gateway;
     private final String chaincodeId;
     private final String name;
-    private final Pattern chaincodeIdPattern;
+    private final Map<Consumer<ContractEvent>, ListenerSession> contractListenerSessions = new HashMap<>();
 
     ContractImpl(NetworkImpl network, String chaincodeId, String name) {
         this.network = network;
-        this.gateway = network.getGateway();
         this.chaincodeId = chaincodeId;
         this.name = name;
-        chaincodeIdPattern = Pattern.compile('^' + Pattern.quote(chaincodeId) + '$');
     }
 
     @Override
@@ -49,13 +60,113 @@ public final class ContractImpl implements Contract {
     }
 
     @Override
-    public Consumer<ContractEvent> addContractListener(Consumer<ContractEvent> listener, Pattern eventName) {
-        return network.getContractEventSource().addContractListener(listener, chaincodeIdPattern, eventName);
+    public Consumer<ContractEvent> addContractListener(Consumer<ContractEvent> listener) {
+        synchronized (contractListenerSessions) {
+            contractListenerSessions.computeIfAbsent(listener, k -> {
+                Consumer<ContractEvent> contractListener = Listeners.contract(listener, chaincodeId);
+                return new BlockListenerSession(network.getBlockSource(), Listeners.fromContract(contractListener));
+            });
+        }
+        return listener;
+    }
+
+    @Override
+    public Consumer<ContractEvent> addContractListener(Consumer<ContractEvent> listener, String eventName) {
+        return addContractListener(listener, getEventNamePattern(eventName));
+    }
+
+    private Pattern getEventNamePattern(String eventName) {
+        return Pattern.compile(Pattern.quote(eventName));
+    }
+
+    @Override
+    public Consumer<ContractEvent> addContractListener(Consumer<ContractEvent> listener, Pattern eventNamePattern) {
+        synchronized(contractListenerSessions) {
+            contractListenerSessions.computeIfAbsent(listener, k -> {
+                Consumer<ContractEvent> contractListener = Listeners.contract(listener, chaincodeId, eventNamePattern);
+                return new BlockListenerSession(network.getBlockSource(), Listeners.fromContract(contractListener));
+            });
+        }
+        return listener;
+    }
+
+    @Override
+    public Consumer<ContractEvent> addContractListener(Checkpointer checkpointer, Consumer<ContractEvent> listener) throws IOException {
+        synchronized (contractListenerSessions) {
+            if (!contractListenerSessions.containsKey(listener)) {
+                Consumer<ContractEvent> contractListener = Listeners.contract(listener, chaincodeId);
+                ListenerSession session = newCheckpointListenerSession(checkpointer, contractListener);
+                contractListenerSessions.put(listener, session);
+            }
+        }
+        return listener;
+    }
+
+    private ListenerSession newCheckpointListenerSession(Checkpointer checkpointer, Consumer<ContractEvent> contractListener) throws IOException {
+        Consumer<BlockEvent> checkpointListener = Listeners.checkpointContract(checkpointer, contractListener);
+        return network.newCheckpointListenerSession(checkpointer, checkpointListener);
+    }
+
+    @Override
+    public Consumer<ContractEvent> addContractListener(Checkpointer checkpointer, Consumer<ContractEvent> listener, String eventName) throws IOException {
+        return addContractListener(checkpointer, listener, getEventNamePattern(eventName));
+    }
+
+    @Override
+    public Consumer<ContractEvent> addContractListener(Checkpointer checkpointer, Consumer<ContractEvent> listener, Pattern eventNamePattern) throws IOException {
+        synchronized (contractListenerSessions) {
+            if (!contractListenerSessions.containsKey(listener)) {
+                Consumer<ContractEvent> contractListener = Listeners.contract(listener, chaincodeId, eventNamePattern);
+                ListenerSession session = newCheckpointListenerSession(checkpointer, contractListener);
+                contractListenerSessions.put(listener, session);
+            }
+        }
+        return listener;
+    }
+
+    @Override
+    public Consumer<ContractEvent> addContractListener(long startBlock, Consumer<ContractEvent> listener) {
+        synchronized (contractListenerSessions) {
+            if (!contractListenerSessions.containsKey(listener)) {
+                Consumer<ContractEvent> contractListener = Listeners.contract(listener, chaincodeId);
+                ListenerSession session = newReplayListenerSession(startBlock, contractListener);
+                contractListenerSessions.put(listener, session);
+            }
+        }
+        return listener;
+    }
+
+    private ListenerSession newReplayListenerSession(long startBlock, Consumer<ContractEvent> contractListener) {
+        Consumer<BlockEvent> blockListener = Listeners.fromContract(contractListener);
+        return new ReplayListenerSession(network, blockListener, startBlock);
+    }
+
+    @Override
+    public Consumer<ContractEvent> addContractListener(long startBlock, Consumer<ContractEvent> listener, String eventName) {
+        return addContractListener(startBlock, listener, getEventNamePattern(eventName));
+    }
+
+    @Override
+    public Consumer<ContractEvent> addContractListener(long startBlock, Consumer<ContractEvent> listener, Pattern eventNamePattern) {
+        synchronized (contractListenerSessions) {
+            if (!contractListenerSessions.containsKey(listener)) {
+                Consumer<ContractEvent> contractListener = Listeners.contract(listener, chaincodeId, eventNamePattern);
+                ListenerSession session = newReplayListenerSession(startBlock, contractListener);
+                contractListenerSessions.put(listener, session);
+            }
+        }
+        return listener;
     }
 
     @Override
     public void removeContractListener(Consumer<ContractEvent> listener) {
-        network.getContractEventSource().removeContractListener(listener);
+        ListenerSession session;
+        synchronized (contractListenerSessions) {
+            session = contractListenerSessions.remove(listener);
+        }
+        if (session != null) {
+            session.close();
+        }
     }
 
     public NetworkImpl getNetwork() {
@@ -68,5 +179,20 @@ public final class ContractImpl implements Contract {
 
     private String getQualifiedName(String tname) {
         return this.name.isEmpty() ? tname : this.name + ':' + tname;
+    }
+
+    @Override
+    public void close() {
+        synchronized (contractListenerSessions) {
+            contractListenerSessions.values().forEach(ListenerSession::close);
+            contractListenerSessions.clear();
+        }
+    }
+
+    @Override
+    public String toString() {
+        return getClass().getSimpleName() + '@' + System.identityHashCode(this) +
+                "(name=" + (name.isEmpty() ? chaincodeId : chaincodeId + ':' + name) +
+                ", contractListenerSessions=" + contractListenerSessions + ')';
     }
 }

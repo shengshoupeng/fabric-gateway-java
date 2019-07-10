@@ -6,22 +6,42 @@
 
 package org.hyperledger.fabric.gateway.impl;
 
+import java.io.FileReader;
+import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import javax.json.Json;
+import javax.json.JsonReader;
+import javax.json.stream.JsonParsingException;
+
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.hyperledger.fabric.gateway.DefaultCommitHandlers;
 import org.hyperledger.fabric.gateway.DefaultQueryHandlers;
 import org.hyperledger.fabric.gateway.Gateway;
-import org.hyperledger.fabric.gateway.GatewayException;
+import org.hyperledger.fabric.gateway.GatewayRuntimeException;
 import org.hyperledger.fabric.gateway.Network;
 import org.hyperledger.fabric.gateway.Wallet;
 import org.hyperledger.fabric.gateway.Wallet.Identity;
-import org.hyperledger.fabric.gateway.spi.CheckpointerFactory;
 import org.hyperledger.fabric.gateway.spi.CommitHandlerFactory;
 import org.hyperledger.fabric.gateway.spi.QueryHandlerFactory;
 import org.hyperledger.fabric.sdk.Channel;
+import org.hyperledger.fabric.sdk.Channel.PeerOptions;
 import org.hyperledger.fabric.sdk.Enrollment;
 import org.hyperledger.fabric.sdk.HFClient;
 import org.hyperledger.fabric.sdk.NetworkConfig;
+import org.hyperledger.fabric.sdk.Peer;
+import org.hyperledger.fabric.sdk.Peer.PeerRole;
 import org.hyperledger.fabric.sdk.User;
 import org.hyperledger.fabric.sdk.exception.CryptoException;
 import org.hyperledger.fabric.sdk.exception.InvalidArgumentException;
@@ -30,32 +50,17 @@ import org.hyperledger.fabric.sdk.identity.X509Enrollment;
 import org.hyperledger.fabric.sdk.security.CryptoSuite;
 import org.hyperledger.fabric.sdk.security.CryptoSuiteFactory;
 
-import javax.json.Json;
-import javax.json.JsonReader;
-import javax.json.stream.JsonParsingException;
-import java.io.FileReader;
-import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.TimeUnit;
-
 public final class GatewayImpl implements Gateway {
     private static final Log LOG = LogFactory.getLog(Gateway.class);
 
     private final HFClient client;
     private final NetworkConfig networkConfig;
     private final Identity identity;
-    private final Map<String, Network> networks = new HashMap<>();
+    private final Map<String, NetworkImpl> networks = new HashMap<>();
     private final CommitHandlerFactory commitHandlerFactory;
     private final TimePeriod commitTimeout;
     private final QueryHandlerFactory queryHandlerFactory;
     private final boolean discovery;
-    private final CheckpointerFactory checkpointerFactory;
 
     public static final class Builder implements Gateway.Builder {
         private CommitHandlerFactory commitHandlerFactory = DefaultCommitHandlers.MSPID_SCOPE_ALLFORTX;
@@ -65,13 +70,12 @@ public final class GatewayImpl implements Gateway {
         private Identity identity = null;
         private HFClient client;
         private boolean discovery = false;
-        private CheckpointerFactory checkpointerFactory = new FileCheckpointerFactory(Paths.get(System.getProperty("user.home"), ".hlf-checkpoint"));
 
         public Builder() {
         }
 
         @Override
-		public Builder networkConfig(Path config) throws GatewayException {
+		public Builder networkConfig(Path config) throws IOException {
 			try {
 				// ccp is either JSON or YAML
 			    try (JsonReader reader = Json.createReader(new FileReader(config.toFile()))) {
@@ -82,14 +86,14 @@ public final class GatewayImpl implements Gateway {
 					// assume YAML then
 					ccp = NetworkConfig.fromYamlFile(config.toFile());
 				}
-			} catch (IOException | InvalidArgumentException | NetworkConfigurationException e) {
-				throw new GatewayException(e);
+			} catch (InvalidArgumentException | NetworkConfigurationException e) {
+				throw new IOException(e);
 			}
 			return this;
 		}
 
         @Override
-        public Builder identity(Wallet wallet, String id) throws GatewayException {
+        public Builder identity(Wallet wallet, String id) throws IOException {
             this.identity = wallet.get(id);
             return this;
         }
@@ -118,29 +122,22 @@ public final class GatewayImpl implements Gateway {
 			return this;
 		}
 
-		@Override
-        public Builder checkpointer(CheckpointerFactory factory) {
-            this.checkpointerFactory = factory;
-            return this;
-        }
-
         public Builder client(HFClient client) {
             this.client = client;
             return this;
         }
 
         @Override
-        public GatewayImpl connect() throws GatewayException {
+        public GatewayImpl connect() {
             return new GatewayImpl(this);
         }
     }
 
-    private GatewayImpl(Builder builder) throws GatewayException {
+    private GatewayImpl(Builder builder) {
         this.commitHandlerFactory = builder.commitHandlerFactory;
         this.commitTimeout = builder.commitTimeout;
         this.queryHandlerFactory = builder.queryHandlerFactory;
         this.discovery = builder.discovery;
-        this.checkpointerFactory = builder.checkpointerFactory;
 
         if (builder.client != null) {
             // Only for testing!
@@ -152,10 +149,10 @@ public final class GatewayImpl implements Gateway {
             this.identity = Identity.createIdentity(user.getMspId(), enrollment.getCert(), enrollment.getKey());
         } else {
             if (null == builder.identity) {
-                throw new GatewayException("The gateway identity must be set");
+                throw new IllegalStateException("The gateway identity must be set");
             }
             if (null == builder.ccp) {
-                throw new GatewayException("The network configuration must be specified");
+                throw new IllegalStateException("The network configuration must be specified");
             }
             this.networkConfig = builder.ccp;
             this.identity = builder.identity;
@@ -164,19 +161,18 @@ public final class GatewayImpl implements Gateway {
         }
     }
 
-    private GatewayImpl(GatewayImpl that) throws GatewayException {
+    private GatewayImpl(GatewayImpl that) {
         this.commitHandlerFactory = that.commitHandlerFactory;
         this.commitTimeout = that.commitTimeout;
         this.queryHandlerFactory = that.queryHandlerFactory;
         this.discovery = that.discovery;
-        this.checkpointerFactory = that.checkpointerFactory;
         this.networkConfig = that.networkConfig;
         this.identity = that.identity;
 
         this.client = createClient();
     }
 
-    private HFClient createClient() throws GatewayException {
+    private HFClient createClient() {
         Enrollment enrollment = new X509Enrollment(identity.getPrivateKey(), identity.getCertificate());
         User user = new User() {
             @Override
@@ -218,22 +214,24 @@ public final class GatewayImpl implements Gateway {
             client.setUserContext(user);
         } catch (ClassNotFoundException | CryptoException | IllegalAccessException | NoSuchMethodException |
                 InstantiationException | InvalidArgumentException | InvocationTargetException  e) {
-            throw new GatewayException("Failed to configure client", e);
+            throw new GatewayRuntimeException("Failed to configure client", e);
         }
 
         return client;
     }
 
     @Override
-    public void close() {
+    public synchronized void close() {
+        networks.values().forEach(NetworkImpl::close);
+        networks.clear();
     }
 
     @Override
-    public synchronized Network getNetwork(final String networkName) throws GatewayException {
+    public synchronized Network getNetwork(final String networkName) {
         if (networkName == null || networkName.isEmpty()) {
             throw new IllegalArgumentException("Channel name must be a non-empty string");
         }
-        Network network = networks.get(networkName);
+        NetworkImpl network = networks.get(networkName);
         if (network == null) {
             Channel channel = client.getChannel(networkName);
             if (channel == null && networkConfig != null) {
@@ -245,10 +243,17 @@ public final class GatewayImpl implements Gateway {
             }
             if (channel == null) {
                 try {
+                    // since this channel is not in the CCP, we'll assume it exists,
+                	// and the org's peer(s) has joined it with all roles
                     channel = client.newChannel(networkName);
+                    for(Peer peer: getPeersForOrg()) {
+                        PeerOptions peerOptions = PeerOptions.createPeerOptions()
+                                .setPeerRoles(EnumSet.allOf(PeerRole.class));
+                    	channel.addPeer(peer, peerOptions);
+                    }
                 } catch (InvalidArgumentException e) {
                     // we've already checked the channel status
-                	throw new GatewayException(e);
+                	throw new GatewayRuntimeException(e);
                 }
             }
             network = new NetworkImpl(channel, this);
@@ -282,11 +287,22 @@ public final class GatewayImpl implements Gateway {
         return discovery;
     }
 
-    public GatewayImpl newInstance() throws GatewayException {
+    public GatewayImpl newInstance() {
         return new GatewayImpl(this);
     }
 
-    public CheckpointerFactory getCheckpointerFactory() {
-        return checkpointerFactory;
+    private Collection<Peer> getPeersForOrg() {
+    	Collection<Peer> peers = new ArrayList<>();
+		List<String> peerNames = networkConfig.getClientOrganization().getPeerNames();
+		for(String name: peerNames) {
+			try {
+				String url = networkConfig.getPeerUrl(name);
+				Properties props =networkConfig.getPeerProperties(name);
+				peers.add(client.newPeer(name, url, props));
+			} catch (InvalidArgumentException e) {
+				// log warning
+			}
+		}
+		return peers;
     }
 }

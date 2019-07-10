@@ -6,22 +6,20 @@
 
 package org.hyperledger.fabric.gateway.impl;
 
-import org.hyperledger.fabric.gateway.Gateway;
-import org.hyperledger.fabric.gateway.GatewayException;
-import org.hyperledger.fabric.gateway.TestUtils;
-import org.hyperledger.fabric.gateway.Wallet;
-import org.hyperledger.fabric.sdk.HFClient;
-import org.hyperledger.fabric.sdk.Peer;
-import org.hyperledger.fabric.sdk.exception.InvalidArgumentException;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collection;
 import java.util.stream.Collectors;
+
+import org.hyperledger.fabric.gateway.Gateway;
+import org.hyperledger.fabric.gateway.TestUtils;
+import org.hyperledger.fabric.gateway.Wallet;
+import org.hyperledger.fabric.sdk.HFClient;
+import org.hyperledger.fabric.sdk.Peer;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -45,31 +43,32 @@ public class GatewayBuilderTest {
     @Test
     public void testBuilderNoOptions() {
         assertThatThrownBy(() -> builder.connect())
-                .isInstanceOf(GatewayException.class)
+                .isInstanceOf(IllegalStateException.class)
                 .hasMessage("The gateway identity must be set");
     }
 
     @Test
-    public void testBuilderNoCcp() throws GatewayException {
+    public void testBuilderNoCcp() throws IOException {
         Wallet wallet = Wallet.createInMemoryWallet();
         wallet.put("admin", Wallet.Identity.createIdentity("msp1", enrollment.getCertificate(), enrollment.getPrivateKey()));
         builder.identity(wallet, "admin");
         assertThatThrownBy(() -> builder.connect())
-                .isInstanceOf(GatewayException.class).hasMessage("The network configuration must be specified");
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("The network configuration must be specified");
     }
 
     @Test
-    public void testBuilderInvalidIdentity() throws GatewayException {
+    public void testBuilderInvalidIdentity() throws IOException {
         Wallet wallet = Wallet.createInMemoryWallet();
-        wallet.put("admin", Wallet.Identity.createIdentity("msp1", "cert", null));
-        builder.identity(wallet, "admin").networkConfig(networkConfigPath);
+        builder.identity(wallet, "admin")
+                .networkConfig(networkConfigPath);
         assertThatThrownBy(() -> builder.connect())
-                .isInstanceOf(GatewayException.class)
-                .hasCauseInstanceOf(InvalidArgumentException.class);
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("The gateway identity must be set");
     }
 
     @Test
-    public void testBuilderYamlCcp() throws GatewayException {
+    public void testBuilderYamlCcp() throws IOException {
         Wallet wallet = Wallet.createInMemoryWallet();
         wallet.put("admin", Wallet.Identity.createIdentity("msp1", enrollment.getCertificate(), enrollment.getPrivateKey()));
         builder.identity(wallet, "admin");
@@ -85,17 +84,16 @@ public class GatewayBuilderTest {
     }
 
     @Test
-    public void testBuilderInvalidCcp() throws GatewayException {
+    public void testBuilderInvalidCcp() throws IOException {
         Wallet wallet = Wallet.createInMemoryWallet();
         wallet.put("admin", Wallet.Identity.createIdentity("msp1", enrollment.getCertificate(), enrollment.getPrivateKey()));
         builder.identity(wallet, "admin");
         assertThatThrownBy(() -> builder.networkConfig(Paths.get("invalidPath")))
-                .isInstanceOf(GatewayException.class)
-                .hasCauseInstanceOf(IOException.class);
+                .isInstanceOf(IOException.class);
     }
 
     @Test
-    public void testBuilderWithWalletIdentity() throws GatewayException {
+    public void testBuilderWithWalletIdentity() throws IOException {
         Wallet wallet = Wallet.createInMemoryWallet();
         wallet.put("admin", Wallet.Identity.createIdentity("msp1", enrollment.getCertificate(), enrollment.getPrivateKey()));
         builder.identity(wallet, "admin").networkConfig(networkConfigPath);
