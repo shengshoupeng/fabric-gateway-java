@@ -6,18 +6,12 @@
 
 package org.hyperledger.fabric.gateway.impl;
 
-import org.hyperledger.fabric.gateway.GatewayException;
 import org.hyperledger.fabric.gateway.Network;
 import org.hyperledger.fabric.gateway.TransactionEventResult;
-import org.hyperledger.fabric.gateway.impl.event.CompositePeerDisconnectListener;
-import org.hyperledger.fabric.gateway.impl.event.PeerDisconnectEvent;
-import org.hyperledger.fabric.gateway.impl.event.PeerDisconnectEventSource;
-import org.hyperledger.fabric.gateway.impl.event.PeerDisconnectEventSourceFactory;
 import org.hyperledger.fabric.gateway.spi.CommitHandler;
 import org.hyperledger.fabric.sdk.BlockEvent;
 import org.hyperledger.fabric.sdk.Peer;
 
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;

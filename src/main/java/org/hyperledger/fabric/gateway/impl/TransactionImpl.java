@@ -14,10 +14,7 @@ import java.util.concurrent.TimeoutException;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.hyperledger.fabric.gateway.ContractException;
-import org.hyperledger.fabric.gateway.GatewayRuntimeException;
-import org.hyperledger.fabric.gateway.Transaction;
-import org.hyperledger.fabric.gateway.TransactionResult;
+import org.hyperledger.fabric.gateway.*;
 import org.hyperledger.fabric.gateway.spi.CommitHandler;
 import org.hyperledger.fabric.gateway.spi.CommitHandlerFactory;
 import org.hyperledger.fabric.gateway.spi.Query;
@@ -173,10 +170,11 @@ public final class TransactionImpl implements Transaction {
             }
         }
 
-        try{
+
 	        Query query = new QueryImpl(network.getChannel(), request);
 	        ProposalResponse response = queryHandler.evaluate(query);
 	        String txId = response.getTransactionID();
+        try{
 	        TransactionResult result = new TransactionResult(txId);
 	        result.setResult(response.getChaincodeActionResponsePayload());
 	        return result;
