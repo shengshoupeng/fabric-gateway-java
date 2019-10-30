@@ -41,4 +41,9 @@ public interface CommitHandler {
      * Called to interrupt the waiting state of {@link #waitForEvents(long, TimeUnit)} before completion.
      */
     void cancelListening();
+
+    /**
+     * 应用可能会需要event中的信息，如区块号，哈希.
+     */
+    TransactionEventResult eventResult();
 }

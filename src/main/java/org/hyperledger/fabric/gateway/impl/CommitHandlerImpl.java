@@ -6,6 +6,12 @@
 
 package org.hyperledger.fabric.gateway.impl;
 
+import org.hyperledger.fabric.gateway.Network;
+import org.hyperledger.fabric.gateway.TransactionEventResult;
+import org.hyperledger.fabric.gateway.spi.CommitHandler;
+import org.hyperledger.fabric.sdk.BlockEvent;
+import org.hyperledger.fabric.sdk.Peer;
+
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
@@ -41,11 +47,14 @@ public final class CommitHandlerImpl implements CommitHandler {
     private final CountDownLatch latch = new CountDownLatch(1);
     private final AtomicReference<ContractException> error = new AtomicReference<>();
 
-    public CommitHandlerImpl(final String transactionId, final Network network, final CommitStrategy strategy) {
+    private TransactionEventResult eventResult;
+
+    public CommitHandlerImpl(String transactionId, Network network, CommitStrategy strategy) {
         this.transactionId = transactionId;
         this.network = network;
         this.strategy = strategy;
         this.peers = Collections.synchronizedSet(new HashSet<>(strategy.getPeers()));
+        eventResult = new TransactionEventResult(transactionId);
     }
 
     @Override
@@ -97,6 +106,8 @@ public final class CommitHandlerImpl implements CommitHandler {
 
         if (event.isValid()) {
             CommitStrategy.Result result = strategy.onEvent(event);
+            eventResult.setBlockNum(event.getBlockEvent().getBlockNumber());
+            eventResult.setDataHash(event.getBlockEvent().getDataHash());
             processStrategyResult(result);
         } else {
             String peerName = event.getPeer().getName();
@@ -116,6 +127,7 @@ public final class CommitHandlerImpl implements CommitHandler {
 
     private void processStrategyResult(final CommitStrategy.Result strategyResult) {
         if (strategyResult == CommitStrategy.Result.SUCCESS) {
+            eventResult.setSuccess(true);
             cancelListening();
         } else if (strategyResult == CommitStrategy.Result.FAIL) {
             fail(new ContractException("Commit strategy failed"));
@@ -125,5 +137,11 @@ public final class CommitHandlerImpl implements CommitHandler {
     private void fail(final ContractException e) {
         error.set(e);
         cancelListening();
+    }
+
+
+    @Override
+    public TransactionEventResult eventResult(){
+        return eventResult;
     }
 }

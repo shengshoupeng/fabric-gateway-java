@@ -6,6 +6,8 @@
 
 package org.hyperledger.fabric.gateway.impl;
 
+import org.hyperledger.fabric.gateway.*;
+
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -46,12 +48,14 @@ public final class ContractImpl implements Contract, AutoCloseable {
     }
 
     @Override
-    public byte[] submitTransaction(final String name, final String... args) throws ContractException, TimeoutException, InterruptedException {
+//    public byte[] submitTransaction(String name, String... args) throws GatewayException, TimeoutException {
+    public TransactionResult submitTransaction(String name, String... args) throws GatewayException, TimeoutException {
         return createTransaction(name).submit(args);
     }
 
     @Override
-    public byte[] evaluateTransaction(final String name, final String... args) throws ContractException {
+//    public byte[] evaluateTransaction(String name, String... args) throws GatewayException {
+    public TransactionResult evaluateTransaction(String name, String... args) throws GatewayException {
         return createTransaction(name).evaluate(args);
     }
 
