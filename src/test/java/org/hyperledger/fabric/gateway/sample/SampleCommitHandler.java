@@ -15,6 +15,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import org.hyperledger.fabric.gateway.Network;
+import org.hyperledger.fabric.gateway.TransactionEventResult;
 import org.hyperledger.fabric.gateway.spi.CommitHandler;
 import org.hyperledger.fabric.gateway.spi.CommitListener;
 import org.hyperledger.fabric.gateway.spi.PeerDisconnectEvent;
@@ -30,6 +31,7 @@ public final class SampleCommitHandler implements CommitHandler {
     private final Set<Peer> peers;
     private final String transactionId;
     private final CountDownLatch completeLatch = new CountDownLatch(1);
+    private TransactionEventResult eventResult;
     private final CommitListener listener = new CommitListener() {
         @Override
         public void acceptCommit(BlockEvent.TransactionEvent transactionEvent) {
@@ -80,5 +82,10 @@ public final class SampleCommitHandler implements CommitHandler {
         if (peers.remove(peer) && peers.isEmpty()) {
             cancelListening();
         }
+    }
+
+    @Override
+    public TransactionEventResult eventResult(){
+        return eventResult;
     }
 }

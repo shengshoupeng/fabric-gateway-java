@@ -10,6 +10,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import org.hyperledger.fabric.gateway.ContractException;
+import org.hyperledger.fabric.gateway.TransactionEventResult;
 
 /**
  * Class to handle waiting for an appropriate number of successful commit events to be received from peers following

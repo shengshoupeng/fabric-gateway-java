@@ -43,11 +43,11 @@ public final class TransactionInvocation {
     }
 
     public void submit(String... args) {
-        invoke(() -> transaction.submit(args));
+        invoke(() -> transaction.submit(args).getResult());
     }
 
     public void evaluate(String... args) {
-        invoke(() -> transaction.evaluate(args));
+        invoke(() -> transaction.evaluate(args).getResult());
     }
 
     private void invoke(Callable<byte[]> invocationFn) {

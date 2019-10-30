@@ -60,7 +60,7 @@ public interface Contract {
 	 * @see <a href="https://hyperledger-fabric.readthedocs.io/en/release-1.4/developapps/application.html#submit-transaction">Developing Fabric Applications - Submit transaction</a>
 	 */
 //	byte[] submitTransaction(String name, String... args) throws GatewayException, TimeoutException;
-	TransactionResult submitTransaction(String name, String... args) throws GatewayException, TimeoutException;
+	TransactionResult submitTransaction(String name, String... args) throws GatewayException, TimeoutException, InterruptedException;
 
 	/**
 	 * Evaluate a transaction function and return its results.

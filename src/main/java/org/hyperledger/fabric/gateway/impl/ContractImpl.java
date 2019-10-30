@@ -49,7 +49,7 @@ public final class ContractImpl implements Contract, AutoCloseable {
 
     @Override
 //    public byte[] submitTransaction(String name, String... args) throws GatewayException, TimeoutException {
-    public TransactionResult submitTransaction(String name, String... args) throws GatewayException, TimeoutException {
+    public TransactionResult submitTransaction(String name, String... args) throws GatewayException, TimeoutException, InterruptedException {
         return createTransaction(name).submit(args);
     }
 

@@ -179,7 +179,7 @@ public class TransactionTest {
 
         byte[] result = contract.createTransaction("txn")
                 .setTransient(transientMap)
-                .submit("arg1");
+                .submit("arg1").getResult();
         assertThat(new String(result)).isEqualTo(expected);
     }
 

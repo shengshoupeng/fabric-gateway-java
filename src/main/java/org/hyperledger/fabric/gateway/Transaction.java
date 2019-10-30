@@ -70,7 +70,7 @@ public interface Transaction {
 	 * @throws GatewayRuntimeException if an underlying infrastructure failure occurs.
 	 */
 //	byte[] submit(String... args) throws GatewayException, TimeoutException;
-	TransactionResult submit(String... args) throws GatewayException, TimeoutException;
+	TransactionResult submit(String... args) throws GatewayException, TimeoutException, InterruptedException;;
 
 	/**
 	 * Evaluate a transaction function and return its results.
