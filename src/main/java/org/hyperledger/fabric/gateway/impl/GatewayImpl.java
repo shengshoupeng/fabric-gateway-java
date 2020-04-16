@@ -266,11 +266,12 @@ public final class GatewayImpl implements Gateway {
             if (channel == null) {
                 try {
                     // since this channel is not in the CCP, we'll assume it exists,
-                    // and the org's peer(s) has joined it with all roles
+                    // and the org's peer(s) has joined it with all roles ---- //shengsp--except SERVICE-DISCOVERY, baas doesn't support
                     channel = client.newChannel(networkName);
                     for (Peer peer : getPeersForOrg()) {
                         PeerOptions peerOptions = PeerOptions.createPeerOptions()
-                                .setPeerRoles(EnumSet.allOf(PeerRole.class));
+//                                .setPeerRoles(EnumSet.allOf(PeerRole.class));
+                                  .setPeerRoles(EnumSet.complementOf(EnumSet.of(PeerRole.SERVICE_DISCOVERY)));
                         channel.addPeer(peer, peerOptions);
                     }
                 } catch (InvalidArgumentException e) {

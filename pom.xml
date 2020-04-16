@@ -6,8 +6,8 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>org.hyperledger.fabric</groupId>
-    <artifactId>fabric-gateway-java</artifactId>
-    <version>1.4.1-SNAPSHOT</version>
+    <artifactId>fabric-gateway-baas-java</artifactId>
+    <version>1.4.1</version>
     <packaging>jar</packaging>
 
     <name>fabric-gateway-java</name>
@@ -223,6 +223,19 @@
                         <id>attach-javadocs</id>
                         <goals>
                             <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <version>2.2.1</version>
+                <executions>
+                    <execution>
+                        <id>attach-sources</id>
+                        <goals>
+                            <goal>jar-no-fork</goal>
                         </goals>
                     </execution>
                 </executions>
